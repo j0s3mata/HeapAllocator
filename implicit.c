@@ -13,6 +13,8 @@ static void *segment_start= NULL;
 static size_t segment_size = 0;
 static size_t nused;
 
+
+
 //static void *next_avail, *heap_max;
 
 static void *find_fit(size_t asize)
@@ -66,11 +68,11 @@ bool myinit(void *heap_start, size_t heap_size) {
     if (segment_start == NULL) return false;
          
     PUT((char *)segment_start, 0);                          /* Alignment padding */
-    PUT((char *)segment_start + (1*WSIZE), PACK(DSIZE, 1)); /* Prologue header */
-    PUT((char *)segment_start + (2*WSIZE), PACK(DSIZE, 1)); /* Prologue footer */
-    PUT((char *)segment_start + (3*WSIZE), PACK(0, 1));     /* Epilogue header */
-    segment_start = (char *)segment_start + (4*WSIZE);
-    segment_size = segment_size - (4*WSIZE);
+    PUT((char *)segment_start + (1*DSIZE), PACK(2*DSIZE, 1)); /* Prologue header */
+    PUT((char *)segment_start + (2*DSIZE), PACK(2*DSIZE, 1)); /* Prologue footer */
+    //PUT((char *)segment_start + (3*DSIZE), PACK(0, 1));     /* Epilogue header */
+    segment_start = (char *)segment_start + (4*DSIZE);
+    segment_size = segment_size - (4*DSIZE);
 
      /* Initialize free block header/footer and the epilogue header */
     //Figure 9.45 extend_heap extends the heap with a new free block
@@ -120,17 +122,22 @@ void *mymalloc(size_t requested_size) {
 
 void myfree(void *bp) {
     // TODO: implement this!
+    if(bp !=NULL)
+        {
     size_t size = GET_SIZE(HDRP(bp));
    
     PUT(HDRP(bp), PACK(size, 0));
     PUT(FTRP(bp), PACK(size, 0));
     nused-=size;
+        
     //coalesce(bp);
+        }
+        
 }
 
 void *myrealloc(void *bp, size_t nsize) {
     // TODO: remove the line below and implement this!
-    size_t next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(bp)));
+    /*size_t next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(bp)));
     size_t next_size = GET_SIZE(HDRP(NEXT_BLKP(bp)));
     
     size_t csize = GET_SIZE(HDRP(bp));
@@ -141,7 +148,7 @@ void *myrealloc(void *bp, size_t nsize) {
             place(bp, nsize);  
         }
     else if ((nsize <= (csize + 2*DSIZE +  next_size + DSIZE)) && !next_alloc)
-        { /* Case 2 */
+        { // Case 2 
         csize+= 2*DSIZE +  next_size + DSIZE;
         nsize = roundup(nsize, 2*ALIGNMENT);
 
@@ -149,16 +156,16 @@ void *myrealloc(void *bp, size_t nsize) {
             {
             PUT(HDRP(bp), PACK(nsize, 1));
             PUT(FTRP(bp), PACK(nsize, 1));
-            nused+=nsize;
+            nused = nsize;
             bp = NEXT_BLKP(bp);
-            PUT(HDRP(bp), PACK(csize-nsize - DSIZE, 0));
-            PUT(FTRP(bp), PACK(csize-nsize - DSIZE, 0));
+            PUT(HDRP(bp), PACK(csize-nsize - 4*DSIZE, 0));
+            PUT(FTRP(bp), PACK(csize-nsize - 4*DSIZE, 0));
             }
         else
             {
             PUT(HDRP(bp), PACK(csize, 1));
             PUT(FTRP(bp), PACK(csize, 1));
-            nused+=csize;
+            nused = csize;
             }       
         }
     else if (nsize > csize)
@@ -167,7 +174,22 @@ void *myrealloc(void *bp, size_t nsize) {
             if (!bp) return NULL;
                     
         } 
-  return bp;
+        return bp;*/
+
+    if(bp ==NULL) return bp = mymalloc(nsize);
+    
+    void *newptr = mymalloc(nsize);
+    if (!newptr) return NULL;
+    memcpy(newptr, bp, nsize);
+    myfree(bp);
+    return newptr;
+
+
+
+
+
+
+    
 }
 
 bool validate_heap() {
