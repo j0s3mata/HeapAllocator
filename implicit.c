@@ -48,7 +48,7 @@ static void place(void *bp, size_t asize)
          }
 }
 
-/*static void *coalesce(void *bp)
+static void *coalesce(void *bp)
  {
      size_t prev_alloc = GET_ALLOC(FTRP(PREV_BLKP(bp)));
      size_t next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(bp)));
@@ -79,7 +79,7 @@ static void place(void *bp, size_t asize)
          bp = PREV_BLKP(bp);
          }
      return bp;
-     }*/
+     }
  
 bool myinit(void *heap_start, size_t heap_size) {
    /* TODO: remove the line below and implement this!
@@ -165,7 +165,7 @@ void myfree(void *bp) {
     PUT(FTRP(bp), PACK(size, 0));
     nused-=size;
         
-    //coalesce(bp);//<-------------------
+    coalesce(bp);//<-------------------
         }
         
 }
@@ -179,13 +179,13 @@ void *myrealloc(void *bp, size_t nsize) {
     /* Ignore spurious requests */
     if (nsize == 0) return NULL;
 
+    //size_t next_size = GET_SIZE(HDRP(NEXT_BLKP(bp)));
+    
+
     size_t next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(bp)));
     size_t csize = GET_SIZE(HDRP(bp));
     //size_t val = *(char *)(bp);
     size_t asize;
-
-
-    //if(nsize == csize) return bp;//<-----------------
 
     /* Adjust block size to include overhead and alignment reqs. */
      if (nsize <= 2*DSIZE)
@@ -197,7 +197,6 @@ void *myrealloc(void *bp, size_t nsize) {
          }
      
      if(asize == csize) return bp;//<-----------------
-
  
         if((asize < csize))
         {
@@ -206,29 +205,65 @@ void *myrealloc(void *bp, size_t nsize) {
             {
                 PUT(HDRP(bp), PACK(asize, 1));
                 PUT(FTRP(bp), PACK(asize, 1));
+                
                 bp = NEXT_BLKP(bp);
                 PUT(HDRP(bp), PACK(csize-asize, 0));
                 PUT(FTRP(bp), PACK(csize-asize, 0));
+                nused-=(csize - asize);
+                return PREV_BLKP(bp);//<--------
             }
         else
             {
                 PUT(HDRP(bp), PACK(csize, 1));
                 PUT(FTRP(bp), PACK(csize, 1));
+                return bp;//<--------
+                
             }
-        return PREV_BLKP(bp);
+        //return PREV_BLKP(bp);//<---------
+                    
+        }
         
-            
-        }   
-    else if (asize > csize)
+        
+        else if((asize <= (csize  +  GET_SIZE(HDRP(NEXT_BLKP(bp)))  )) && !next_alloc)
+            {
+                while((asize <= (csize  +  GET_SIZE(HDRP(NEXT_BLKP(bp)))  )) && !next_alloc)
+                    {
+                csize+= ( GET_SIZE(HDRP(NEXT_BLKP(bp))) );
+                
+                if ((csize - asize) >= (2*DSIZE))
+                    {
+                        PUT(HDRP(bp), PACK(asize, 1));
+                        PUT(FTRP(bp), PACK(asize, 1));
+                        nused+=asize;
+                        
+                        bp = NEXT_BLKP(bp);
+                        
+                        PUT(HDRP(bp), PACK(csize-asize, 0));
+                        PUT(FTRP(bp), PACK(csize-asize, 0));
+                        return PREV_BLKP(bp);
+                    }
+                else
+                    {
+                        PUT(HDRP(bp), PACK(csize, 1));
+                        PUT(FTRP(bp), PACK(csize, 1));
+                        nused+= GET_SIZE(HDRP(NEXT_BLKP(bp)));
+                        return bp;
+                        
+                    }
+                //return bp;
+                    }
+                                
+                }
+        
+        else if ((asize > csize))
         {
-    void *newptr = mymalloc(nsize);
-    if (!newptr) return NULL;
-    memcpy(newptr, bp, nsize);
-    myfree(bp);
-    return newptr;
-    }
+            void *newptr = mymalloc(nsize);
+            if (!newptr) return NULL;
+            memcpy(newptr, bp, nsize);
+            myfree(bp);
+            return newptr;
+        }
     
-
         return bp;
 }
 
