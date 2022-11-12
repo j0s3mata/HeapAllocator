@@ -1,7 +1,66 @@
 #include "allocator.h"
 #include "debug_break.h"
 
-bool myinit(void *heap_start, size_t heap_size) {
+#include "segment.h"
+#include "utils.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <errno.h>
+
+//private (static) global variables
+static void *segment_start= NULL;
+static size_t segment_size = 0;
+static size_t nused;
+
+void *head = NULL;
+
+static void *find_fit(size_t asize)
+{
+    /* First-fit search */
+    //void *bp;
+
+    //while(*(unsigned long*)NEXT_PTR (segment_start) != 0)
+    //{
+        if ( (asize <= GET_SIZE(HDRP(head))))
+            {
+            //if(NEXT_PTR(bp) !=NULL)
+            //{
+            //segment_start = NEXT_PTR(bp);
+                    //}
+                return head;
+                //break;
+            }
+        //segment_start= NEXT_BLKP(segment_start);
+        //segment_start =  NEXT_BLKP(segment_start);
+        
+        //}
+    return NULL; /* No fit */
+    //#endif
+}
+
+static void place(void *bp, size_t asize)
+{
+    size_t csize = GET_SIZE(HDRP(bp));
+
+    if ((csize - asize) >= (2*DSIZE)) {
+        PUT(HDRP(bp), PACK(asize, 1));
+        PUT(FTRP(bp), PACK(asize, 1));
+        bp = NEXT_BLKP(bp);
+        PUT(HDRP(bp), PACK(csize-asize, 0));
+        PUT(FTRP(bp), PACK(csize-asize, 0));
+    }
+    else {
+        PUT(HDRP(bp), PACK(csize, 1));
+        PUT(FTRP(bp), PACK(csize, 1));
+    }
+    //headRef = bp;
+    
+}
+
+
+bool myinit(void *heap_start, size_t heap_size)
+{
   /* TODO: remove the line below and implement this!
    * This must be called by a client before making any allocation
    * requests.  The function returns true if initialization was
@@ -10,16 +69,93 @@ bool myinit(void *heap_start, size_t heap_size) {
    * against a set of of test scripts, our test harness calls
    * myinit before starting each new script.
    */
-  return false;
+    segment_start = heap_start;
+    segment_size = heap_size;
+    nused = 0;
+ 
+    /* Create the initial empty heap */
+    if (segment_start == NULL) return false;
+
+    PUT((char *)segment_start, 0);                          /* Alignment padding */
+    PUT((char *)segment_start + (1*DSIZE), PACK(2*DSIZE, 1)); /* Prologue header */
+    PUT((char *)segment_start + (2*DSIZE), PACK(2*DSIZE, 1)); /* Prologue footer */
+
+    segment_start = (char *)segment_start + (4*DSIZE);
+    segment_size = segment_size - (4*DSIZE);
+
+    /* Initialize free block header/footer and the epilogue header */
+    //Figure 9.45 extend_heap extends the heap with a new free block
+    PUT(HDRP(segment_start), PACK(segment_size, 0)); /* Free block header */
+    PUT(FTRP(segment_start), PACK(segment_size, 0)); /* Free block footer */
+    
+    PUT(HDRP(NEXT_BLKP(segment_start)), PACK(0, 1)); /* New epilogue header */
+
+    //size_t* prev = PREV_PTR(segment_start);l
+    //size_t* next = NEXT_PTR(segment_start);
+
+    head = segment_start;
+    
+
+    
+  return true;
 }
 
 void *mymalloc(size_t requested_size) {
   // TODO: remove the line below and implement this!
-  return NULL;
+
+    size_t asize; /* Adjusted block size */
+    char *bp;
+
+    /* Ignore spurious requests */
+    if (requested_size == 0)
+        return NULL;
+
+    /* Adjust block size to include overhead and alignment reqs. */
+    if (requested_size <= 4*DSIZE){
+        asize = 8*DSIZE;
+    }else{
+        asize = roundup(requested_size, 4*ALIGNMENT);
+    }
+
+    /* Search the free list for a fit */
+    if ((bp = find_fit(asize)) != NULL)
+        {
+            place(bp, asize);
+            nused+=asize;//<-----------------
+        //segment_size-=asize;//<--------------
+            head = NEXT_BLKP(head);
+            //bp =  NEXT_PTR(bp);
+       
+    
+            return bp;
+         }
+    return bp;
+
+   
 }
 
-void myfree(void *ptr) {
+void myfree(void *bp) {
   // TODO: implement this!
+    if(bp !=NULL)        {
+        size_t size = GET_SIZE(HDRP(bp));
+
+        PUT(HDRP(bp), PACK(size, 0));
+        PUT(FTRP(bp), PACK(size, 0));
+        nused-=size;
+
+        //head = HDRP (bp);
+        //unsigned long HDRP_head = (unsigned long*)HDRP (head);
+        *(unsigned long*)bp = (unsigned long) *(unsigned long*)HDRP (head);
+        //unsigned long HDRP_bp = (unsigned long*)HDRP (bp);
+        *(unsigned long*)PREV_PTR (head) = (unsigned long) (unsigned long*)HDRP (bp);
+        *(unsigned long*)PREV_PTR (bp) = 0;
+        
+        head = (bp);
+        
+       
+        //coalesce(bp);//<-------------------
+    }
+
 }
 
 void *myrealloc(void *old_ptr, size_t new_size) {
@@ -27,7 +163,8 @@ void *myrealloc(void *old_ptr, size_t new_size) {
   return NULL;
 }
 
-bool validate_heap() {
+bool validate_heap()
+{
   /* TODO: remove the line below and implement this to
    * check your internal structures!
    * Return true if all is ok, or false otherwise.
@@ -36,5 +173,49 @@ bool validate_heap() {
    * You can also use the breakpoint() function to stop
    * in the debugger - e.g. if (something_is_wrong) breakpoint();
    */
-  return false;
+  return true;
+
+ 
+}
+/* Function: dump_heap
+ * -------------------
+ * This optional function dumps the raw heap contents.
+ * This function is not called from anywhere, it is just here to
+ * demonstrate how such a function might be a useful debugging aid.
+ * You are not required to implement such a function in your own
+ * allocators, but if you do, you can then call the function
+ * from gdb to view the contents of the heap segment.
+ * For the bump allocator, the heap contains no block headers or
+ * heap housekeeping to provide structure, so all that can be displayed
+ * is a dump of the raw bytes. For a more structured allocator, you
+ * could implement dump_heap to instead just print the block headers,
+ *GET_SIZE(HDRP(segment_start)) & GET_ALLOC(HDRP(segment_start))
+ * which would be less overwhelming to wade through for debugging.
+ */
+void dump_heap() {
+    printf("Heap segment starts at address %p, ends at %p. %lu bytes currently "
+           "used.",
+           segment_start, (char *)segment_start + segment_size, nused);
+    for (int i = 0; i < nused; i++) {
+        unsigned char *cur = (unsigned char *)segment_start + i;
+        if (i % 32 == 0) {
+            printf("\n%p: ", cur);
+        }
+        printf("%02x ", *cur);
+    }
+}
+
+void heap_dump(){
+    void *bp;
+
+    for (bp = segment_start; (char*) bp < (char *)segment_start + segment_size ; bp = NEXT_BLKP(bp)) {
+
+        size_t size = GET_SIZE(HDRP(bp));
+        size_t alloc = GET_ALLOC(HDRP(bp));
+
+        printf("%lu / %lu\n" , alloc, size);
+    }
+
+    
+
 }
