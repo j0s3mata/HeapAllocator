@@ -20,7 +20,7 @@ static void *find_fit(size_t asize)
     /* First-fit search */
     //void *bp;
 
-    //while(*(unsigned long*)NEXT_PTR (segment_start) != 0)
+    //while(*(unsigned long*)NEXT_PTR (head) != 0)
     //{
         if ( (asize <= GET_SIZE(HDRP(head))))
             {
@@ -35,6 +35,26 @@ static void *find_fit(size_t asize)
         //segment_start =  NEXT_BLKP(segment_start);
         
         //}
+        else
+            {
+                while(*(unsigned long*)NEXT_PTR (head) != 0)
+                    {
+                        head =(unsigned long*) *(unsigned long*) NEXT_PTR(head);
+                        if ( (asize <= GET_SIZE(HDRP(head))))
+                            {
+            //if(NEXT_PTR(bp) !=NULL)
+            //{
+            //segment_start = NEXT_PTR(bp);
+                    //}
+                                return head;
+                //break;
+                            }
+                    }
+            }
+
+
+
+        
     return NULL; /* No fit */
     //#endif
 }
@@ -57,6 +77,7 @@ static void place(void *bp, size_t asize)
     //headRef = bp;
     
 }
+
 
 
 bool myinit(void *heap_start, size_t heap_size)
@@ -118,16 +139,33 @@ void *mymalloc(size_t requested_size) {
     }
 
     /* Search the free list for a fit */
-    if ((bp = find_fit(asize)) != NULL)
+    if (((bp = find_fit(asize)) != NULL))
         {
             place(bp, asize);
             nused+=asize;//<-----------------
         //segment_size-=asize;//<--------------
-            head = NEXT_BLKP(head);
-            //bp =  NEXT_PTR(bp);
+
+            //if(*(unsigned long*) NEXT_PTR(head))
+                //{
+                    //head =(unsigned*) *(unsigned long*)NEXT_PTR(head);
+                    
+                    //}
+
+            
+            if(! *(unsigned long*) NEXT_PTR(bp))
+                {
+                    head =  NEXT_BLKP(head);
+                    //return bp;
+                   
+                }
+                else 
+                    {
+                        head =(unsigned long*) *(unsigned long*) NEXT_PTR(head);
+                    }
+                //bp =  NEXT_PTR(bp);
        
     
-            return bp;
+            return bp;//
          }
     return bp;
 
@@ -137,24 +175,26 @@ void *mymalloc(size_t requested_size) {
 void myfree(void *bp) {
   // TODO: implement this!
     if(bp !=NULL)        {
-        size_t size = GET_SIZE(HDRP(bp));
+    size_t size = GET_SIZE(HDRP(bp));
 
-        PUT(HDRP(bp), PACK(size, 0));
-        PUT(FTRP(bp), PACK(size, 0));
-        nused-=size;
+    PUT(HDRP(bp), PACK(size, 0));
+    PUT(FTRP(bp), PACK(size, 0));
+    nused-=size;
 
         //head = HDRP (bp);
         //unsigned long HDRP_head = (unsigned long*)HDRP (head);
-        *(unsigned long*)bp = (unsigned long) *(unsigned long*)HDRP (head);
+        
+        *(unsigned long*)bp = (unsigned long) (unsigned long*) (head);
         //unsigned long HDRP_bp = (unsigned long*)HDRP (bp);
-        *(unsigned long*)PREV_PTR (head) = (unsigned long) (unsigned long*)HDRP (bp);
+        *(unsigned long*)PREV_PTR (head) = (unsigned long) (unsigned long*) (bp);
         *(unsigned long*)PREV_PTR (bp) = 0;
         
         head = (bp);
+        //head = (unsigned long*) (unsigned long) *(unsigned long*) PREV_PTR(head);
         
        
         //coalesce(bp);//<-------------------
-    }
+     }
 
 }
 
