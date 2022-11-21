@@ -15,14 +15,27 @@ static size_t nused;
 
 void *head = NULL;
 
+// deletes free block pointed by ptr to the free_list
+static void free_list_delete(void* bp)
+{
+    if(getprevptr(bp)==NULL)//if ptr points to root of free_list
+            {
+                head=getnextptr(bp);
+            }
+        //else//if ptr points to any arbitary block in free_list
+        //NEXT_PTR(PREV_PTR(ptr))=NEXT_PTR(ptr);
+   setprevptr( getnextptr(bp), getprevptr(bp) );
+}
+
+
 static void *find_fit(size_t asize)
 {
     /* First-fit search */
-    //void *bp;
+    void *bp = head;
 
     //while(*(unsigned long*)NEXT_PTR (head) != 0)
     //{
-        if ( (asize <= GET_SIZE(HDRP(head))))
+    /*if ( (asize <= GET_SIZE(HDRP(head))))
             {
             //if(NEXT_PTR(bp) !=NULL)
             //{
@@ -36,29 +49,68 @@ static void *find_fit(size_t asize)
         
         //}
         else
-            {
-                while(*(unsigned long*)NEXT_PTR (head) != 0)
+            {*/
+    //while(*(unsigned long*)NEXT_PTR (head) != 0)
+                    while(bp != NULL)
                     {
-                        head =(unsigned long*) *(unsigned long*) NEXT_PTR(head);
-                        if ( (asize <= GET_SIZE(HDRP(head))))
+                        //head =(unsigned long*) *(unsigned long*) NEXT_PTR(head);
+                        //cur = NEXT_PTR(cur);
+                        if ( (asize <= GET_SIZE(HDRP(bp))))
                             {
             //if(NEXT_PTR(bp) !=NULL)
             //{
             //segment_start = NEXT_PTR(bp);
                     //}
-                                return head;
+                                return bp;
                 //break;
                             }
+                        //bp = NEXT_PTR(bp);<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
                     }
-            }
-
-
-
+                //}
         
     return NULL; /* No fit */
     //#endif
 }
 
+
+
+static void *coalesce(void *bp)
+{
+    size_t prev_alloc = GET_ALLOC(FTRP(PREV_BLKP(bp))) || PREV_BLKP(bp) == bp ; // prev_alloc will be true if previous block is allocated or its size is zero
+    size_t next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(bp)));
+    size_t size = GET_SIZE(HDRP(bp));
+
+    if (prev_alloc && next_alloc) { // Case 1
+        // adds free block pointed by ptr to the free_list
+        setnextptr(bp, head);
+        setprevptr(head, bp);
+        setprevptr(bp, NULL);
+        head = bp;        
+        return bp;
+    }
+
+    /*else if (prev_alloc && !next_alloc) { // Case 2
+        size += GET_SIZE(HDRP(NEXT_BLKP(bp)));
+        PUT(HDRP(bp), PACK(size, 0));
+        PUT(FTRP(bp), PACK(size,0));
+    }
+
+    else if (!prev_alloc && next_alloc) { // Case 3
+        size += GET_SIZE(HDRP(PREV_BLKP(bp)));
+        PUT(FTRP(bp), PACK(size, 0));
+        PUT(HDRP(PREV_BLKP(bp)), PACK(size, 0));
+        bp = PREV_BLKP(bp);
+    }
+
+    else { // Case 4
+        size += GET_SIZE(HDRP(PREV_BLKP(bp))) +
+            GET_SIZE(FTRP(NEXT_BLKP(bp)));
+        PUT(HDRP(PREV_BLKP(bp)), PACK(size, 0));
+        PUT(FTRP(NEXT_BLKP(bp)), PACK(size, 0));
+        bp = PREV_BLKP(bp);
+    }*/
+    return bp;
+}
 static void place(void *bp, size_t asize)
 {
     size_t csize = GET_SIZE(HDRP(bp));
@@ -66,18 +118,25 @@ static void place(void *bp, size_t asize)
     if ((csize - asize) >= (2*DSIZE)) {
         PUT(HDRP(bp), PACK(asize, 1));
         PUT(FTRP(bp), PACK(asize, 1));
-        bp = NEXT_BLKP(bp);
+        
+        //free_list_delete(bp);// free block is deleted from free_list
+        free_list_delete(bp);
+        
+        bp = NEXT_BLKP(bp);        
         PUT(HDRP(bp), PACK(csize-asize, 0));
         PUT(FTRP(bp), PACK(csize-asize, 0));
+        coalesce(bp);
     }
     else {
         PUT(HDRP(bp), PACK(csize, 1));
         PUT(FTRP(bp), PACK(csize, 1));
+        //free_list_delete(bp);// free block is deleted from free_list
+        free_list_delete(bp);
+        
     }
     //headRef = bp;
     
 }
-
 
 
 bool myinit(void *heap_start, size_t heap_size)
@@ -101,8 +160,9 @@ bool myinit(void *heap_start, size_t heap_size)
     PUT((char *)segment_start + (1*DSIZE), PACK(2*DSIZE, 1)); /* Prologue header */
     PUT((char *)segment_start + (2*DSIZE), PACK(2*DSIZE, 1)); /* Prologue footer */
 
-    segment_start = (char *)segment_start + (4*DSIZE);
-    segment_size = segment_size - (4*DSIZE);
+    head = (char *)segment_start + (4*DSIZE);
+    segment_start = (char *)segment_start + (2*4*DSIZE);
+    segment_size = segment_size - (2*4*DSIZE);
 
     /* Initialize free block header/footer and the epilogue header */
     //Figure 9.45 extend_heap extends the heap with a new free block
@@ -114,7 +174,8 @@ bool myinit(void *heap_start, size_t heap_size)
     //size_t* prev = PREV_PTR(segment_start);l
     //size_t* next = NEXT_PTR(segment_start);
 
-    head = segment_start;
+    //head = segment_start;
+    coalesce(segment_start);
     
 
     
@@ -152,7 +213,7 @@ void *mymalloc(size_t requested_size) {
                     //}
 
             
-            if(! *(unsigned long*) NEXT_PTR(bp))
+            /*if(! *(unsigned long*) NEXT_PTR(bp))
                 {
                     head =  NEXT_BLKP(head);
                     //return bp;
@@ -160,8 +221,10 @@ void *mymalloc(size_t requested_size) {
                 }
                 else 
                     {
+                        
                         head =(unsigned long*) *(unsigned long*) NEXT_PTR(head);
-                    }
+                        //  *(unsigned long*)PREV_PTR(head) = 0;
+                    }*/
                 //bp =  NEXT_PTR(bp);
        
     
@@ -174,7 +237,7 @@ void *mymalloc(size_t requested_size) {
 
 void myfree(void *bp) {
   // TODO: implement this!
-    if(bp !=NULL)        {
+    /*if(bp !=NULL)        {
     size_t size = GET_SIZE(HDRP(bp));
 
     PUT(HDRP(bp), PACK(size, 0));
@@ -194,7 +257,8 @@ void myfree(void *bp) {
         
        
         //coalesce(bp);//<-------------------
-     }
+        //head = (bp);}*/
+     
 
 }
 
