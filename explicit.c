@@ -15,20 +15,44 @@ static size_t nused;
 
 void *head = NULL;
 
+/* myMethods */
+// adds free block pointed by ptr to the free_list
+static void free_list_push(void* bp)
+{
+    setnextptr(bp, head);
+    setprevptr(head, bp);
+    setprevptr(bp, NULL);
+    head = bp;
+}
+
+
 // deletes free block pointed by ptr to the free_list
-static void free_list_delete(void* bp)
+static void free_list_pop(void* bp)
 {
     if(getprevptr(bp)==NULL)//if ptr points to root of free_list
             {
                 head=getnextptr(bp);
             }
+    else
+        {
+            //head = getprevptr(bp);
+            //setnextptr(bp, head);
+            //setnextptr(bp, NEXT_BLKP (bp));
+            //setnextptr(head , NEXT_BLKP (bp));
+            
+            //head = getprevptr(bp);
+        
         //else//if ptr points to any arbitary block in free_list
         //NEXT_PTR(PREV_PTR(ptr))=NEXT_PTR(ptr);
+            setnextptr(getprevptr(bp), getnextptr(bp));
+        
+        }
+    
    setprevptr( getnextptr(bp), getprevptr(bp) );
 }
 
 
-static void *find_fit(size_t asize)
+static void *find_fit(size_t asize)//Iterate Down a Listn
 {
     /* First-fit search */
     void *bp = head;
@@ -64,7 +88,7 @@ static void *find_fit(size_t asize)
                                 return bp;
                 //break;
                             }
-                        //bp = NEXT_PTR(bp);<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+                        bp = getnextptr (bp); //NEXT_PTR(bp);<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
                     }
                 //}
         
@@ -82,10 +106,7 @@ static void *coalesce(void *bp)
 
     if (prev_alloc && next_alloc) { // Case 1
         // adds free block pointed by ptr to the free_list
-        setnextptr(bp, head);
-        setprevptr(head, bp);
-        setprevptr(bp, NULL);
-        head = bp;        
+        free_list_push(bp);       
         return bp;
     }
 
@@ -120,7 +141,7 @@ static void place(void *bp, size_t asize)
         PUT(FTRP(bp), PACK(asize, 1));
         
         //free_list_delete(bp);// free block is deleted from free_list
-        free_list_delete(bp);
+        free_list_pop(bp);
         
         bp = NEXT_BLKP(bp);        
         PUT(HDRP(bp), PACK(csize-asize, 0));
@@ -131,7 +152,7 @@ static void place(void *bp, size_t asize)
         PUT(HDRP(bp), PACK(csize, 1));
         PUT(FTRP(bp), PACK(csize, 1));
         //free_list_delete(bp);// free block is deleted from free_list
-        free_list_delete(bp);
+        free_list_pop(bp);
         
     }
     //headRef = bp;
@@ -237,16 +258,21 @@ void *mymalloc(size_t requested_size) {
 
 void myfree(void *bp) {
   // TODO: implement this!
-    /*if(bp !=NULL)        {
-    size_t size = GET_SIZE(HDRP(bp));
+    if(bp !=NULL)
+        {
+            size_t size = GET_SIZE(HDRP(bp));
 
-    PUT(HDRP(bp), PACK(size, 0));
-    PUT(FTRP(bp), PACK(size, 0));
-    nused-=size;
+            PUT(HDRP(bp), PACK(size, 0));
+            PUT(FTRP(bp), PACK(size, 0));
+            nused-=size;
+
+            //free_list_push(bp);
+            coalesce(bp);
+            
 
         //head = HDRP (bp);
         //unsigned long HDRP_head = (unsigned long*)HDRP (head);
-        
+        /*
         *(unsigned long*)bp = (unsigned long) (unsigned long*) (head);
         //unsigned long HDRP_bp = (unsigned long*)HDRP (bp);
         *(unsigned long*)PREV_PTR (head) = (unsigned long) (unsigned long*) (bp);
@@ -258,6 +284,7 @@ void myfree(void *bp) {
        
         //coalesce(bp);//<-------------------
         //head = (bp);}*/
+        }
      
 
 }
