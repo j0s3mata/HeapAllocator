@@ -275,6 +275,7 @@ static void place(void *bp, size_t asize)
         PUT(HDRP(bp), PACK(csize-asize, 0));
         PUT(FTRP(bp), PACK(csize-asize, 0));
         coalesce(bp);
+        //free_list_push(bp);
     }
     else {
         PUT(HDRP(bp), PACK(csize, 1));
@@ -325,6 +326,7 @@ bool myinit(void *heap_start, size_t heap_size)
 
     //head = segment_start;
     coalesce(segment_start);
+    //free_list_push(segment_start);
     
 
     
@@ -396,6 +398,7 @@ void myfree(void *bp) {
 
             //free_list_push(bp);
             coalesce(bp);
+            //free_list_push(bp);
             
 
         //head = HDRP (bp);
@@ -417,10 +420,120 @@ void myfree(void *bp) {
 
 }
 
-void *myrealloc(void *old_ptr, size_t new_size) {
+void *myrealloc(void *bp, size_t nsize)
+{
+
   // TODO: remove the line below and implement this!
-  return NULL;
+
+  //breakpoint();
+
+  if(bp ==NULL) return bp = mymalloc(nsize);
+  
+  /* Ignore spurious requests */
+  if (nsize == 0) return NULL;
+
+  //size_t next_size = GET_SIZE(HDRP(NEXT_BLKP(bp)));
+
+
+  size_t next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(bp)));
+  size_t csize = GET_SIZE(HDRP(bp));
+  //size_t val = *(char *)(bp);
+  size_t asize;
+
+  /* Adjust block size to include overhead and alignment reqs. */
+  if (nsize <= 4*DSIZE)
+      {
+          asize = 8*DSIZE;
+      }
+  else{
+      asize = roundup(nsize, 4*ALIGNMENT);
+  }
+
+  if(asize == csize) return bp;//<-----------------
+
+  if((asize < csize))
+      {
+          //PUT(FTRP(bp), val);
+          if ((csize - asize) >= (2*DSIZE))
+              {
+                  PUT(HDRP(bp), PACK(asize, 1));
+                  PUT(FTRP(bp), PACK(asize, 1));
+                  //free_list_delete(bp);// free block is deleted from free_list
+                  //free_list_pop(bp);
+                 
+                  bp = NEXT_BLKP(bp);
+                  PUT(HDRP(bp), PACK(csize-asize, 0));
+                  PUT(FTRP(bp), PACK(csize-asize, 0));
+                  nused-=(csize - asize);
+                  coalesce(bp);
+                  //free_list_push(bp);
+                  return PREV_BLKP(bp);//<--------
+              }
+          else
+              {
+                  PUT(HDRP(bp), PACK(csize, 1));
+                  PUT(FTRP(bp), PACK(csize, 1));
+                  //free_list_pop(bp);
+                  return bp;//<--------
+
+              }
+          //return PREV_BLKP(bp);//<---------
+
+      }
+
+
+  else if((asize <= (csize  +  GET_SIZE(HDRP(NEXT_BLKP(bp)))  )) && !next_alloc)
+      {
+          while((asize <= (csize  +  GET_SIZE(HDRP(NEXT_BLKP(bp)))  )) && !next_alloc)
+              {
+                  csize+= ( GET_SIZE(HDRP(NEXT_BLKP(bp))) );
+                  free_list_pop(NEXT_BLKP(bp));
+                  
+
+                  if ((csize - asize) >= (2*DSIZE))
+                      {
+                          PUT(HDRP(bp), PACK(asize, 1));
+                          PUT(FTRP(bp), PACK(asize, 1));
+                          nused+=asize;
+                          //free_list_delete(bp);// free block is deleted from free_list
+                          //free_list_pop(bp);
+
+                          bp = NEXT_BLKP(bp);
+                          PUT(HDRP(bp), PACK(csize-asize, 0));
+                          PUT(FTRP(bp), PACK(csize-asize, 0));
+                          coalesce(bp);
+                          //free_list_push(bp);
+                          return PREV_BLKP(bp);
+                      }
+                  else
+                      {
+                          PUT(HDRP(bp), PACK(csize, 1));
+                          PUT(FTRP(bp), PACK(csize, 1));
+                          nused+= GET_SIZE(HDRP(NEXT_BLKP(bp)));
+                          //coalesce(bp);
+                          //free_list_delete(bp);// free block is deleted from free_list
+                          //free_list_pop(bp);
+                                  
+                          return bp;
+
+                      }
+                  //return bp;
+              }
+
+      }
+
+  else if ((asize > csize))
+      {
+          void *newptr = mymalloc(nsize);
+          if (!newptr) return NULL;
+          memcpy(newptr, bp, nsize);
+          myfree(bp);
+          return newptr;
+      }
+
+  return bp;
 }
+
 
 bool validate_heap()
 {
