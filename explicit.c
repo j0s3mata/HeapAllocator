@@ -17,21 +17,43 @@ void *head = NULL;
 
 /* myMethods */
 // adds free block pointed by ptr to the free_list
-static void free_list_push(void* bp)
+static void free_list_push(void* newNode)
 {
-    setnextptr(bp, head);
-    setprevptr(head, bp);
-    setprevptr(bp, NULL);
-    head = bp;
+    /*setnextptr(newNode, head);
+    setprevptr(head, newNode);
+    setprevptr(newNode, NULL);
+    head = newNode;*/
+    
+    /* since we are adding at the beginning,
+       prev is always NULL */
+    //new_node->prev = NULL;
+    setprevptr(newNode, NULL);
+
+    /* link the old list of the new node */
+    //new_node->next = (*head_ref);
+    setnextptr(newNode, head);
+
+    /* change prev of head node to new node */
+    //if ((*head_ref) != NULL)
+    //(*head_ref)->prev = new_node;
+    if(head !=NULL)
+        setprevptr(head, newNode);
+        
+
+    /* move the head to point to the new node */
+    //(*head_ref) = new_node;
+    head = newNode;
+    
 }
 
 
 // deletes free block pointed by ptr to the free_list
-static void free_list_pop(void* bp)
+static void free_list_pop(void* ptr)
 {
-    if(getprevptr(bp)==NULL)//if ptr points to root of free_list
+  
+    if(getprevptr(ptr)==NULL)//if ptr points to root of free_list
             {
-                head=getnextptr(bp);
+                head=getnextptr(ptr);
             }
     else
         {
@@ -44,18 +66,18 @@ static void free_list_pop(void* bp)
         
         //else//if ptr points to any arbitary block in free_list
         //NEXT_PTR(PREV_PTR(ptr))=NEXT_PTR(ptr);
-            setnextptr(getprevptr(bp), getnextptr(bp));
+            setnextptr(getprevptr(ptr), getnextptr(ptr));
         
         }
     
-   setprevptr( getnextptr(bp), getprevptr(bp) );
+   setprevptr( getnextptr(ptr), getprevptr(ptr) );
 }
 
 
 static void *find_fit(size_t asize)//Iterate Down a Listn
 {
     /* First-fit search */
-    void *bp = head;
+    void *cur = head;
 
     //while(*(unsigned long*)NEXT_PTR (head) != 0)
     //{
@@ -75,20 +97,20 @@ static void *find_fit(size_t asize)//Iterate Down a Listn
         else
             {*/
     //while(*(unsigned long*)NEXT_PTR (head) != 0)
-                    while(bp != NULL)
+                    while(cur != NULL)
                     {
                         //head =(unsigned long*) *(unsigned long*) NEXT_PTR(head);
                         //cur = NEXT_PTR(cur);
-                        if ( (asize <= GET_SIZE(HDRP(bp))))
+                        if ( (asize <= GET_SIZE(HDRP(cur))))
                             {
             //if(NEXT_PTR(bp) !=NULL)
             //{
             //segment_start = NEXT_PTR(bp);
                     //}
-                                return bp;
+                                return cur;
                 //break;
                             }
-                        bp = getnextptr (bp); //NEXT_PTR(bp);<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+                        cur = getnextptr (cur); //NEXT_PTR(bp);<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
                     }
                 //}
         
@@ -98,25 +120,127 @@ static void *find_fit(size_t asize)//Iterate Down a Listn
 
 
 
-static void *coalesce(void *bp)
+static void *coalesce(void *newNode)
 {
-    size_t prev_alloc = GET_ALLOC(FTRP(PREV_BLKP(bp))) || PREV_BLKP(bp) == bp ; // prev_alloc will be true if previous block is allocated or its size is zero
-    size_t next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(bp)));
-    size_t size = GET_SIZE(HDRP(bp));
+    size_t prev_alloc = GET_ALLOC(FTRP(PREV_BLKP(newNode))) || PREV_BLKP(newNode) == newNode ; // prev_alloc will be true if previous block is allocated or its size is zero
+    size_t next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(newNode)));
+    size_t size = GET_SIZE(HDRP(newNode));
 
     if (prev_alloc && next_alloc) { // Case 1
         // adds free block pointed by ptr to the free_list
-        free_list_push(bp);       
-        return bp;
+        free_list_push(newNode);       
+        return newNode;//<=====================================================================
     }
 
-    /*else if (prev_alloc && !next_alloc) { // Case 2
-        size += GET_SIZE(HDRP(NEXT_BLKP(bp)));
-        PUT(HDRP(bp), PACK(size, 0));
-        PUT(FTRP(bp), PACK(size,0));
+    else if (prev_alloc && !next_alloc)
+        { // Case 2
+        size += GET_SIZE(HDRP(NEXT_BLKP(newNode)));
+
+        free_list_pop(NEXT_BLKP(newNode));//<===================================================================
+
+        
+        PUT(HDRP(newNode), PACK(size, 0));
+        PUT(FTRP(newNode), PACK(size,0));
+
+        /* base case */
+        /*if (head == NULL)
+            {
+                return newNode;
+            }*/
+
+        /* If node to be deleted is head node */
+        /*if (head == NEXT_BLKP(newNode) || NEXT_BLKP(newNode) == NULL)
+            {
+                setprevptr(newNode, NULL);
+                setnextptr(newNode, getnextptr(NEXT_BLKP(newNode)));           
+                //head = getnextptr(NEXT_BLKP(newNode));
+
+                //setprevptr(newNode, getprevptr(NEXT_BLKP(newNode)));
+                //setnextptr(newNode, getnextptr(NEXT_BLKP(newNode)));
+
+                PUT(HDRP(newNode), PACK(size, 0));
+                PUT(FTRP(newNode), PACK(size,0));
+                
+                head = newNode;
+
+                return newNode;
+                
+            }*/
+                 
+        /*if(getprevptr(NEXT_BLKP(newNode)) == NULL && getnextptr(NEXT_BLKP(newNode)) != NULL  )//i.e., head
+            {
+                
+                //setnextptr(getnextptr(NEXT_BLKP(newNode)), newNode);
+                setnextptr(getnextptr(NEXT_BLKP(newNode)), newNode);
+                //setnextptr(head, newNode);
+                    
+                setprevptr(newNode, NULL);
+                setnextptr(newNode, getnextptr(NEXT_BLKP(newNode)));
+                //head = newNode;
+                PUT(HDRP(newNode), PACK(size, 0));
+                PUT(FTRP(newNode), PACK(size,0));
+                //head = newNode;
+                free_list_push(newNode);    
+                //return head;
+                }*/
+  
+ 
+        /*if(getnextptr(NEXT_BLKP(newNode)) != NULL  &&  getprevptr(NEXT_BLKP(newNode)) != NULL)
+            {
+               setnextptr(getprevptr(NEXT_BLKP(newNode)), newNode);
+               setprevptr(newNode, getprevptr(NEXT_BLKP(newNode)));
+               setnextptr(newNode, getnextptr(NEXT_BLKP(newNode)));                           
+               PUT(HDRP(newNode), PACK(size, 0));
+               PUT(FTRP(newNode), PACK(size,0));        
+               free_list_push(newNode);
+            }*/
+
+        /* Change next only if node to be deleted is NOT the last node */
+        /*if ( getnextptr(NEXT_BLKP(newNode)) != NULL )
+            {
+                //del->next->prev = del->prev;
+                setprevptr(getnextptr(NEXT_BLKP(newNode)), newNode);
+            
+                //setprevptr(newNode, getprevptr(NEXT_BLKP(newNode)));
+                //setnextptr(newNode, getnextptr(NEXT_BLKP(newNode)));
+            }*/
+        
+        
+            /*if(getprevptr(NEXT_BLKP(newNode)) != NULL && getnextptr(NEXT_BLKP(newNode)) == NULL )//i.e., last node
+            {
+                setnextptr(getprevptr(NEXT_BLKP(newNode)), newNode);
+                setprevptr(newNode, getprevptr(NEXT_BLKP(newNode)));
+                setnextptr(newNode, NULL);
+                PUT(HDRP(newNode), PACK(size, 0));
+                PUT(FTRP(newNode), PACK(size,0));
+                free_list_push(newNode);                
+                }*/
+
+        /* Change prev only if node to be deleted is NOT the first node */
+        /*if (getprevptr(NEXT_BLKP(newNode))  != NULL )
+            {
+                //del->prev->next = del->next;
+                setnextptr(getprevptr(NEXT_BLKP(newNode)), newNode);
+                
+                //setprevptr(newNode, getprevptr(NEXT_BLKP(newNode)));
+                //setnextptr(newNode, getnextptr(NEXT_BLKP(newNode)));
+
+
+                }*/
+
+        //setprevptr(newNode, getprevptr(NEXT_BLKP(newNode)));
+        //setnextptr(newNode, getnextptr(NEXT_BLKP(newNode)));
+
+        //free_list_pop(NEXT_BLKP(newNode));
+
+        //PUT(HDRP(newNode), PACK(size, 0));
+        //PUT(FTRP(newNode), PACK(size,0));
+        
+        //free_list_push(newNode);//<====================================
+        //return newNode;//<====================================                        
     }
 
-    else if (!prev_alloc && next_alloc) { // Case 3
+    /*else if (!prev_alloc && next_alloc) { // Case 3
         size += GET_SIZE(HDRP(PREV_BLKP(bp)));
         PUT(FTRP(bp), PACK(size, 0));
         PUT(HDRP(PREV_BLKP(bp)), PACK(size, 0));
@@ -129,9 +253,13 @@ static void *coalesce(void *bp)
         PUT(HDRP(PREV_BLKP(bp)), PACK(size, 0));
         PUT(FTRP(NEXT_BLKP(bp)), PACK(size, 0));
         bp = PREV_BLKP(bp);
-    }*/
-    return bp;
+        }*/
+
+
+    free_list_push(newNode);//<=====================================================================  
+    return newNode;
 }
+
 static void place(void *bp, size_t asize)
 {
     size_t csize = GET_SIZE(HDRP(bp));
