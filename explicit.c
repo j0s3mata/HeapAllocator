@@ -126,13 +126,13 @@ static void *coalesce(void *newNode)
     size_t next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(newNode)));
     size_t size = GET_SIZE(HDRP(newNode));
 
-    if (prev_alloc && next_alloc) { // Case 1
+    /*if (prev_alloc && next_alloc) { // Case 1
         // adds free block pointed by ptr to the free_list
         free_list_push(newNode);       
         return newNode;//<=====================================================================
-    }
+    }*/
 
-    else if (prev_alloc && !next_alloc)
+     if (prev_alloc && !next_alloc)
         { // Case 2
         size += GET_SIZE(HDRP(NEXT_BLKP(newNode)));
 
@@ -256,7 +256,7 @@ static void *coalesce(void *newNode)
         }*/
 
 
-    free_list_push(newNode);//<=====================================================================  
+    //free_list_push(newNode);//<=====================================================================  
     return newNode;
 }
 
@@ -274,8 +274,8 @@ static void place(void *bp, size_t asize)
         bp = NEXT_BLKP(bp);        
         PUT(HDRP(bp), PACK(csize-asize, 0));
         PUT(FTRP(bp), PACK(csize-asize, 0));
-        coalesce(bp);
-        //free_list_push(bp);
+        //coalesce(bp);
+        free_list_push(bp);
     }
     else {
         PUT(HDRP(bp), PACK(csize, 1));
@@ -325,8 +325,8 @@ bool myinit(void *heap_start, size_t heap_size)
     //size_t* next = NEXT_PTR(segment_start);
 
     //head = segment_start;
-    coalesce(segment_start);
-    //free_list_push(segment_start);
+    //coalesce(segment_start);
+    free_list_push(segment_start);
     
 
     
@@ -398,7 +398,7 @@ void myfree(void *bp) {
 
             //free_list_push(bp);
             coalesce(bp);
-            //free_list_push(bp);
+            free_list_push(bp);
             
 
         //head = HDRP (bp);
@@ -465,8 +465,8 @@ void *myrealloc(void *bp, size_t nsize)
                   PUT(HDRP(bp), PACK(csize-asize, 0));
                   PUT(FTRP(bp), PACK(csize-asize, 0));
                   nused-=(csize - asize);
-                  coalesce(bp);
-                  //free_list_push(bp);
+                  //coalesce(bp);
+                  free_list_push(bp);
                   return PREV_BLKP(bp);//<--------
               }
           else
@@ -501,8 +501,8 @@ void *myrealloc(void *bp, size_t nsize)
                           bp = NEXT_BLKP(bp);
                           PUT(HDRP(bp), PACK(csize-asize, 0));
                           PUT(FTRP(bp), PACK(csize-asize, 0));
-                          coalesce(bp);
-                          //free_list_push(bp);
+                          //coalesce(bp);
+                          free_list_push(bp);
                           return PREV_BLKP(bp);
                       }
                   else
