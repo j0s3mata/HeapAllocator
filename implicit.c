@@ -94,6 +94,7 @@ bool myinit(void *heap_start, size_t heap_size) {
     segment_start = heap_start;
     segment_size = heap_size;
     nused = 0;
+    //nused = 3;
  
      /* Create the initial empty heap */
     if (segment_start == NULL) return false;
@@ -176,6 +177,8 @@ void *myrealloc(void *bp, size_t nsize) {
     //breakpoint();
 
     if(bp ==NULL) return bp = mymalloc(nsize);
+    //nused+=nsize;
+    
     /* Ignore spurious requests */
     if (nsize == 0) return NULL;
 
@@ -195,6 +198,8 @@ void *myrealloc(void *bp, size_t nsize) {
      else{
             asize = roundup(nsize, 2*ALIGNMENT);
          }
+
+     
      
      if(asize == csize) return bp;//<-----------------
  
@@ -234,12 +239,12 @@ void *myrealloc(void *bp, size_t nsize) {
                     {
                         PUT(HDRP(bp), PACK(asize, 1));
                         PUT(FTRP(bp), PACK(asize, 1));
-                        nused+=asize;
+                        //nused+=(asize - nused);
                         
-                        bp = NEXT_BLKP(bp);
-                        
+                        bp = NEXT_BLKP(bp);                        
                         PUT(HDRP(bp), PACK(csize-asize, 0));
                         PUT(FTRP(bp), PACK(csize-asize, 0));
+                        nused+=(asize - nused);
                         return PREV_BLKP(bp);
                     }
                 else
@@ -260,6 +265,7 @@ void *myrealloc(void *bp, size_t nsize) {
             void *newptr = mymalloc(nsize);
             if (!newptr) return NULL;
             memcpy(newptr, bp, nsize);
+            nused+=(asize - csize);
             myfree(bp);
             return newptr;
         }
