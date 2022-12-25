@@ -56,4 +56,15 @@ void* PREV_BLKP(void *bp);                                    // line:vm:mm:prev
  */
 size_t roundup(size_t, size_t);
 
+/*void* NEXT_PTR(void *bp);
+
+void* PREV_PTR(void *bp);*/
+
+char *getprevptr(char *ptr);
+void setprevptr(char *ptr, char *prev);
+char *getnextptr(char *ptr);
+void setnextptr(char *ptr, char *next);
+
+
+
 #endif
